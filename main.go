@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"os"
 	"strconv"
+	"strings"
 	"syscall"
 
 	"golang.org/x/term"
@@ -13,7 +14,7 @@ import (
 
 // getPassword allows user to enter password, then returns it
 func getPassword() (string, error) {
-	fmt.Print("Enter DB password: ")
+	fmt.Print("Enter password: ")
 	password_bytes, err := term.ReadPassword(int(syscall.Stdin))
 	if err != nil {
 		return "", err
@@ -27,7 +28,7 @@ func createConnection(ip string, port int) *tls.Conn {
 	conf := &tls.Config{
 		InsecureSkipVerify: true,
 	}
-	conn, err := tls.Dial("tcp", ":8000", conf)
+	conn, err := tls.Dial("tcp", fmt.Sprintf("%s:%d", ip, port), conf)
 	if err != nil {
 		panic(fmt.Sprintf("could not connect to database at %s:%d", ip, port))
 	}
@@ -35,8 +36,49 @@ func createConnection(ip string, port int) *tls.Conn {
 	return conn
 }
 
-func main() {
+// mainLoop handles user commands and sends them to database server
+func mainLoop(password string, ip string, port int) {
 
+	for {
+		// configure tls for secure connection
+		conn := createConnection(ip, port)
+		conn_reader := bufio.NewReader(conn)
+		cmd_reader := bufio.NewReader(os.Stdin)
+
+		// auth
+		conn.Write([]byte(password + "\n"))                // send password
+		auth_response, err := conn_reader.ReadString('\n') // get response
+		if err != nil {
+			fmt.Println(err)
+		}
+		if strings.HasPrefix(auth_response, "Auth failed") {
+			fmt.Println()
+			fmt.Println(auth_response)
+			return
+		}
+
+		// command
+		fmt.Print("> ")
+		command, err := cmd_reader.ReadString('\n') // read command
+		if err != nil {
+			fmt.Println(err)
+		}
+		command = strings.TrimSpace(command)
+		conn.Write([]byte(command + "\n"))                // send command
+		response_msg, err := conn_reader.ReadString('\n') // read response
+		if err != nil {
+			fmt.Println(err)
+		}
+		fmt.Println(strings.TrimSpace(response_msg))
+
+		// exit if command is exit
+		if command == "exit" {
+			return
+		}
+	}
+}
+
+func main() {
 	// get ip and password
 	if len(os.Args) != 3 {
 		panic("Usage: kvg-client IP PORT")
@@ -54,19 +96,8 @@ func main() {
 	if err != nil {
 		panic(err)
 	}
+	fmt.Println()
 
-	// configure tls for secure connection
-	conn := createConnection(ip, port)
-	defer conn.Close()
-
-	// let user enter commands
-
-	conn_reader := bufio.NewReader(conn)
-
-	t, _ := conn_reader.ReadString(' ')
-	fmt.Println(t)
-	conn.Write([]byte(password + "\n"))
-	conn.Write([]byte("get hans\n"))
-	t, _ = conn_reader.ReadString('\n')
-	fmt.Println(t)
+	// user input
+	mainLoop(strings.TrimSpace(password), ip, port)
 }
