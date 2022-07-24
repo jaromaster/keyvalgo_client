@@ -41,6 +41,7 @@ func printHelp() {
 	fmt.Println("COMMANDS:")
 	fmt.Println("set key:value (add new key-value pair)")
 	fmt.Println("get key (get value of key)")
+	fmt.Println("delete key (delete key-value pair)")
 	fmt.Println("import (load data.csv)")
 	fmt.Println("export (persist to data.csv)")
 	fmt.Println("exit (close connection and exit)")
