@@ -36,6 +36,16 @@ func createConnection(ip string, port int) *tls.Conn {
 	return conn
 }
 
+// printHelp shows help for users
+func printHelp() {
+	fmt.Println("COMMANDS:")
+	fmt.Println("set key:value (add new key-value pair)")
+	fmt.Println("get key (get value of key)")
+	fmt.Println("import (load data.csv)")
+	fmt.Println("export (persist to data.csv)")
+	fmt.Println("exit (close connection and exit)")
+}
+
 // mainLoop handles user commands and sends them to database server
 func mainLoop(password string, ip string, port int) {
 
@@ -64,6 +74,13 @@ func mainLoop(password string, ip string, port int) {
 			fmt.Println(err)
 		}
 		command = strings.TrimSpace(command)
+
+		if command == "help" {
+			conn.Close()
+			printHelp()
+			continue
+		}
+
 		conn.Write([]byte(command + "\n"))                // send command
 		response_msg, err := conn_reader.ReadString('\n') // read response
 		if err != nil {
